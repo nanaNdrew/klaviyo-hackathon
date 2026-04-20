@@ -96,19 +96,27 @@ export function MatchCard({ user, onNextProfile }: MatchCardProps) {
                     {response.length}/{MIN_CHARS} chars min
                   </span>
 
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!canSubmit}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all",
-                      canSubmit
-                        ? "bg-ditto text-white hover:bg-ditto-accent shadow-lg shadow-ditto/30 transform hover:scale-105 active:scale-95"
-                        : "bg-white/10 text-white/30 cursor-not-allowed"
-                    )}
-                  >
-                    <span>Send to Reveal</span>
-                    <Send size={16} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onNextProfile()}
+                      className="px-4 py-2 rounded-full font-medium text-white/70 hover:text-white bg-white/5 hover:bg-white/10 transition-all active:scale-95 text-sm"
+                    >
+                      Skip
+                    </button>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!canSubmit}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all",
+                        canSubmit
+                          ? "bg-ditto text-white hover:bg-ditto-accent shadow-lg shadow-ditto/30 transform hover:scale-105 active:scale-95"
+                          : "bg-white/10 text-white/30 cursor-not-allowed"
+                      )}
+                    >
+                      <span>Send to Reveal</span>
+                      <Send size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
