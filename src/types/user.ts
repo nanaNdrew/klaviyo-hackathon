@@ -9,4 +9,5 @@ export interface User {
   age: number;
   imageUrl: string;
   prompts: PersonalityPrompt[];
+  sharedInterest?: string;
 }

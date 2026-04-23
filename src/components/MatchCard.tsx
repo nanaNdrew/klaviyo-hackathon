@@ -2,9 +2,11 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, CheckCircle2, Lock } from "lucide-react";
+import { Send, CheckCircle2, Lock, Loader2, Sparkles, Heart } from "lucide-react";
+import Image from "next/image";
 import { User, PersonalityPrompt } from "../types/user";
 import { cn } from "../lib/utils";
+import { matchService } from "../services/matchService";
 
 interface MatchCardProps {
   user: User;
@@ -18,26 +20,37 @@ export function MatchCard({ user, onNextProfile }: MatchCardProps) {
   const [response, setResponse] = useState("");
   const [isRevealed, setIsRevealed] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pick the first prompt for this user
   const activePrompt: PersonalityPrompt = user.prompts[0] || { id: "default", question: "My most controversial opinion is..." };
 
-  const canSubmit = response.length >= MIN_CHARS;
+  const canSubmit = response.length >= MIN_CHARS && !isSubmitting;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return;
 
-    setIsSuccess(true);
-    setIsRevealed(true);
+    setIsSubmitting(true);
 
-    // Auto-advance to next profile after the success state is shown for a few seconds
-    setTimeout(() => {
-      onNextProfile();
-      // Reset state for next profile happens due to re-render with new user, but good to be safe
-      setResponse("");
-      setIsRevealed(false);
-      setIsSuccess(false);
-    }, (UNBLUR_DURATION + 2) * 1000); // Wait for unblur + 2s reading time
+    try {
+      await matchService.sendMatchResponse(user.id, response);
+
+      setIsSuccess(true);
+      setIsRevealed(true);
+
+      // Auto-advance to next profile after the success state is shown for a few seconds
+      setTimeout(() => {
+        onNextProfile();
+        // Reset state for next profile happens due to re-render with new user, but good to be safe
+        setResponse("");
+        setIsRevealed(false);
+        setIsSuccess(false);
+        setIsSubmitting(false);
+      }, (UNBLUR_DURATION + 2) * 1000); // Wait for unblur + 2s reading time
+    } catch (error) {
+      console.error("Failed to send match response", error);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -52,11 +65,13 @@ export function MatchCard({ user, onNextProfile }: MatchCardProps) {
         }}
         transition={{ duration: UNBLUR_DURATION, ease: "easeInOut" }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={user.imageUrl}
-          alt="Profile"
-          className="w-full h-full object-cover opacity-80"
+          alt={`Profile photo of ${user.name}`}
+          fill
+          priority
+          sizes="(max-width: 768px) 100vw, 384px"
+          className="object-cover opacity-80"
         />
       </motion.div>
 
@@ -80,16 +95,36 @@ export function MatchCard({ user, onNextProfile }: MatchCardProps) {
               </div>
 
               <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 shadow-xl">
+                {user.sharedInterest && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ditto/20 border border-ditto/30 text-ditto-light text-xs font-semibold tracking-wide mb-3 shadow-sm">
+                    <Heart size={10} className="fill-current" />
+                    <span>You both like: {user.sharedInterest}</span>
+                  </div>
+                )}
+
                 <h3 className="text-white font-semibold text-lg leading-tight mb-4 shadow-sm">
                   {activePrompt.question}
                 </h3>
 
-                <textarea
-                  value={response}
-                  onChange={(e) => setResponse(e.target.value)}
-                  placeholder="Type your response to reveal..."
-                  className="w-full bg-black/20 border border-white/10 text-white placeholder:text-white/40 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-ditto-accent transition-all h-24"
-                />
+                <div className="relative">
+                  <textarea
+                    value={response}
+                    onChange={(e) => setResponse(e.target.value)}
+                    placeholder="Type your response to reveal..."
+                    className="w-full bg-black/20 border border-white/10 text-white placeholder:text-white/40 rounded-xl p-3 pr-10 resize-none focus:outline-none focus:ring-2 focus:ring-ditto-accent transition-all h-24"
+                  />
+                  {/* AI Opener Generator Ghost Feature */}
+                  <div
+                    className="absolute top-3 right-3 text-white/40 hover:text-ditto-accent transition-colors cursor-pointer group"
+                    title={`AI-suggested opener based on your shared interest in ${user.sharedInterest || 'this prompt'}`}
+                  >
+                    <Sparkles size={18} />
+                    {/* Optional custom tooltip, although title attribute works, a css tooltip is often prettier */}
+                    <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-black/90 border border-white/10 text-white/90 text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none z-10 shadow-xl">
+                      AI-suggested opener based on your shared interest in {user.sharedInterest || 'this prompt'}
+                    </div>
+                  </div>
+                </div>
 
                 <div className="flex justify-between items-center mt-3">
                   <span className={cn("text-xs", canSubmit ? "text-ditto-light/70" : "text-white/40")}>
@@ -113,8 +148,12 @@ export function MatchCard({ user, onNextProfile }: MatchCardProps) {
                           : "bg-white/10 text-white/30 cursor-not-allowed"
                       )}
                     >
-                      <span>Send to Reveal</span>
-                      <Send size={16} />
+                      <span>{isSubmitting ? "Sending..." : "Send to Reveal"}</span>
+                      {isSubmitting ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Send size={16} />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -139,7 +178,7 @@ export function MatchCard({ user, onNextProfile }: MatchCardProps) {
               <h2 className="text-3xl font-bold text-white tracking-tight drop-shadow-md">
                 {user.name}, {user.age}
               </h2>
-              <p className="text-ditto-light/90 font-medium text-lg drop-shadow-sm">Match Sent!</p>
+              <p className="text-ditto-light/90 font-medium text-lg drop-shadow-sm">Message Sent!</p>
             </motion.div>
           )}
         </AnimatePresence>
